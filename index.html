@@ -2364,6 +2364,7 @@ function badgeStatus(c, small){
 
 
 function ir(pg){
+  fecharMobMenu();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
   document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('on'));
   document.getElementById('page-'+pg).classList.add('on');
@@ -7035,12 +7036,7 @@ function fecharMobMenu(){
   document.getElementById('sb').classList.remove('mob-open');
   document.getElementById('sb-overlay').classList.remove('on');
 }
-// Fechar menu ao navegar no mobile
-const _irOrig = ir;
-function ir(pg){
-  fecharMobMenu();
-  _irOrig(pg);
-}
+// Fechar menu ao navegar no mobile — integrado na função ir original
 
 // ══ BACKUP ══
 function exportJSON(){

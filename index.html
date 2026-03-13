@@ -64,6 +64,49 @@ input,textarea,select { font-family:inherit; outline:none }
 
 /* ══ MAIN ══ */
 #main { flex:1; overflow-y:auto; min-height:100vh }
+
+/* ── RESPONSIVIDADE MOBILE ── */
+#mob-menu-btn {
+  display:none; position:fixed; bottom:20px; right:20px; z-index:2000;
+  width:48px; height:48px; border-radius:50%; background:var(--terra2);
+  color:#fff; font-size:22px; box-shadow:0 4px 16px rgba(0,0,0,.25);
+  align-items:center; justify-content:center; cursor:pointer; border:none;
+}
+@media(max-width:768px){
+  body { flex-direction:column }
+  #sb {
+    width:100%; min-height:unset; flex-direction:column;
+    position:fixed; top:0; left:0; right:0; z-index:1000;
+    max-height:100vh; overflow-y:auto;
+    transform:translateX(-100%); transition:transform .25s ease;
+    width:280px; min-height:100vh;
+  }
+  #sb.mob-open { transform:translateX(0) }
+  #sb-overlay {
+    display:none; position:fixed; inset:0; z-index:999;
+    background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
+  }
+  #sb-overlay.on { display:block }
+  #main { min-height:100vh; padding-top:56px }
+  .page { padding:20px 16px }
+  #mob-menu-btn { display:flex }
+  .stats-row { grid-template-columns:1fr 1fr !important }
+  .pilares { grid-template-columns:1fr !important }
+  .form-wrap { max-width:100% }
+  .btn-act { font-size:12px; padding:7px 11px }
+  .modal { padding:20px 16px; margin:12px }
+  .t-row { flex-wrap:wrap; gap:8px }
+  .perfil-header { flex-direction:column; align-items:flex-start !important }
+  /* Barra de topo mobile */
+  #mob-topbar {
+    display:flex !important;
+    position:fixed; top:0; left:0; right:0; height:56px; z-index:998;
+    background:var(--sb); align-items:center; padding:0 16px; gap:12px;
+    box-shadow:0 2px 8px rgba(0,0,0,.2);
+  }
+  #mob-topbar-title { color:#fff; font-family:'Playfair Display',serif; font-size:16px; font-weight:600; flex:1 }
+}
+#mob-topbar { display:none }
 .page { display:none; padding:38px 46px; max-width:980px; margin:0 auto; animation:fadeIn .2s ease }
 .page.on { display:block }
 @keyframes fadeIn { from { opacity:0; transform:translateY(5px) } to { opacity:1; transform:none } }
@@ -695,6 +738,16 @@ details[open] .fw-sanfona-hd .fw-roteiro-sub { display:none }
     <div class="login-footer">Coaching Criacional® · Plataforma de Gestão</div>
   </div>
 </div>
+
+<!-- barra topo mobile -->
+<div id="mob-topbar">
+  <button onclick="toggleMobMenu()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;line-height:1;padding:4px">☰</button>
+  <div id="mob-topbar-title">Coaching<em style="font-style:italic;color:var(--gold)">Criacional®</em></div>
+</div>
+<!-- overlay sidebar mobile -->
+<div id="sb-overlay" onclick="fecharMobMenu()"></div>
+<!-- botão flutuante menu -->
+<button id="mob-menu-btn" onclick="toggleMobMenu()">☰</button>
 
 <!-- ══ SIDEBAR ══ -->
 <div id="sb">
@@ -6208,16 +6261,16 @@ function gerarMensagemIA(c, p, primeiroNome, feitas, total, eppTexto, top5){
   const inicio     = !isClareza && feitas <= 2;
   const meio       = !isClareza && feitas > 2 && feitas < total;
 
-  // Sessão de Clareza — grupo próprio
+  // ── SESSÃO MATADORA — foco em conversão ──
   if(isClareza){
-    const msgsClareza = [
-      `${primeiroNome}, que presente foi essa Sessão de Clareza. Você parou, olhou para dentro e nomeou o que quer mover na sua vida — isso já é transformação.${objetivo ? ' O seu ponto B é '+objetivo+'.' : ''} O próximo passo é seu.`,
-      `${primeiroNome}, a clareza que surgiu hoje é real e poderosa. Poucas pessoas têm a coragem de fazer esse movimento. Você tem. Guarde bem o que descobriu aqui.`,
-      `${primeiroNome}, ter clareza sobre o que se quer é o começo de tudo. Você veio, se abriu e saiu diferente. Isso não é pouco — é tudo.${valor1 ? ' Que '+valor1+' guie seus próximos passos.' : ''}`,
-      `${primeiroNome}, a Sessão de Clareza é o espelho que poucos ousam encarar. Você encarou. O que você viu aqui vai continuar reverberando — deixa acontecer.`,
-      `${primeiroNome}, foi uma honra estar com você nessa sessão. O que você carrega a partir de agora é uma clareza que só pertence a você. Use com coragem.`,
+    const msgsMatadora = [
+      `${primeiroNome}, o que você trouxe hoje para essa sessão já revela o quanto você está pronta para avançar.${objetivo ? ' Transformar '+objetivo+' em realidade não é um sonho distante — é um processo.' : ''} Quando você decidir dar o próximo passo, estarei aqui.`,
+      `${primeiroNome}, poucas pessoas param para fazer o que você fez hoje: olhar com honestidade para onde estão e para onde querem chegar. Essa coragem é exatamente o que move uma jornada de verdade. Pense nisso.`,
+      `${primeiroNome}, a clareza que surgiu aqui não é pequena. Ela é o começo de algo que pode mudar o rumo da sua vida.${valor1 ? ' Suas raízes — como '+valor1+' — já estão prontas para sustentar esse crescimento.' : ''} A pergunta é: você quer ir mais fundo?`,
+      `${primeiroNome}, em anos acompanhando pessoas, aprendi que quem chega até uma Sessão de Clareza já carrega a resposta dentro de si. Você sabe o que quer mover. O processo de coaching existe para te ajudar a chegar lá com muito mais velocidade e consistência.`,
+      `${primeiroNome}, o que foi plantado hoje precisa de rega para crescer. Uma sessão abre portas — um processo as atravessa.${objetivo ? ' E '+objetivo+' merece ser atravessado de verdade.' : ''} Reflita sobre isso com carinho.`,
     ];
-    const texto = msgsClareza[Math.floor(Math.random() * msgsClareza.length)];
+    const texto = msgsMatadora[Math.floor(Math.random() * msgsMatadora.length)];
     const iframe = document.getElementById('previewFrame');
     const injetar = () => {
       try {
@@ -6230,25 +6283,28 @@ function gerarMensagemIA(c, p, primeiroNome, feitas, total, eppTexto, top5){
     return;
   }
 
-  // Montar grupos de mensagens por momento
+  // ── PROCESSO DE COACHING — por momento ──
   const msgs = concluido ? [
-    `${primeiroNome}, você chegou até aqui. Não por acaso — por escolha, por coragem e por consistência. Cada sessão foi um passo que apenas você poderia dar. Que essa jornada seja o começo de tudo que você já sabe que é capaz.`,
-    `${primeiroNome}, concluir um processo de coaching é um ato de amor próprio. Você olhou para dentro, teve coragem de ver e ainda mais coragem de agir. Isso não tem preço. Leve isso com você para sempre.`,
-    `${primeiroNome}, dez sessões. Dez encontros com a melhor versão de você. O que foi construído aqui não some — vive em cada decisão que você tomar daqui pra frente.${valor1 ? ' Que '+valor1+' continue sendo sua bússola.' : ''}`,
-    `${primeiroNome}, quando você olhar para trás daqui a um ano, vai lembrar desse momento como o ponto de virada. Não porque tudo mudou de uma vez — mas porque você decidiu mudar. E isso muda tudo.`,
-    `${primeiroNome}, a jornada que fizemos juntas foi uma das mais bonitas que já acompanhei. Você trouxe presença, honestidade e vontade real de evoluir. Que orgulho te ver aqui.${objetivo ? ' O ponto B que você escolheu está mais perto do que parece.' : ''}`,
+    // Conclusão — celebração genuína
+    `${primeiroNome}, você chegou até aqui. Não por acaso — por escolha, por coragem e por consistência. Dez sessões que apenas você poderia viver. Que essa jornada seja o começo de tudo que você já sabe que é capaz.`,
+    `${primeiroNome}, concluir um processo de coaching é um ato profundo de amor próprio. Você olhou para dentro, teve coragem de ver e ainda mais coragem de agir. Leve isso com você para sempre.`,
+    `${primeiroNome}, dez encontros com a melhor versão de você. O que foi construído aqui não some — vive em cada escolha que você fizer daqui pra frente.${valor1 ? ' Que '+valor1+' continue sendo sua bússola.' : ''}`,
+    `${primeiroNome}, quando você olhar para trás daqui a um ano, vai reconhecer esse momento como o ponto de virada. Não porque tudo mudou de uma vez — mas porque você decidiu mudar. E isso muda tudo.`,
+    `${primeiroNome}, acompanhar sua jornada foi uma das experiências mais bonitas que já vivi como coach. Você trouxe presença, honestidade e vontade real.${objetivo ? ' '+objetivo+' não é mais só um desejo — é sua nova realidade.' : ''} Que orgulho.`,
   ] : inicio ? [
-    `${primeiroNome}, você deu o primeiro passo — e esse costuma ser o mais difícil. Estar aqui, com disposição para se conhecer e se mover, já diz muito sobre quem você é. Estou com você nessa jornada.`,
+    // Início — encorajamento e pertencimento
+    `${primeiroNome}, você deu o primeiro passo — e esse costuma ser o mais difícil. Estar aqui, disposta a se conhecer e se mover, já diz muito sobre quem você é. Estou com você nessa jornada.`,
     `${primeiroNome}, começos têm uma energia especial. Tudo ainda está sendo construído, e é exatamente nessa fase que as grandes claridades aparecem.${objetivo ? ' Seu ponto B — '+objetivo+' — é real e possível.' : ''} Vamos juntas.`,
-    `${primeiroNome}, cada grande transformação começa com uma decisão simples: a de olhar para dentro. Você já tomou essa decisão. Agora é só continuar colocando um pé na frente do outro.`,
-    `${primeiroNome}, o processo que você iniciou é um presente para a sua vida. Não tenha pressa — cada sessão tem o tempo certo. Confie no caminho e confie em você.`,
-    `${primeiroNome}, é uma honra acompanhar o início da sua jornada. O que você escolheu mover na sua vida merece atenção, cuidado e coragem — e você tem tudo isso.`,
+    `${primeiroNome}, toda grande transformação começa com uma decisão simples: a de olhar para dentro com honestidade. Você já tomou essa decisão. Agora é colocar um pé na frente do outro — sessão por sessão.`,
+    `${primeiroNome}, o processo que você iniciou é um presente para a sua própria vida. Não tenha pressa — cada sessão tem o seu tempo e o seu propósito. Confie no caminho.`,
+    `${primeiroNome}, é uma honra acompanhar o início da sua jornada. O que você escolheu mover merece atenção, cuidado e coragem — e você tem tudo isso dentro de você.`,
   ] : [
-    `${primeiroNome}, você já percorreu um caminho importante. As sessões que fizemos juntas não foram só conversas — foram transformações reais. Continue com essa mesma disposição.${eppTexto ? ' Seu compromisso de "'+eppTexto.slice(0,60)+(eppTexto.length>60?'...':'')+'" faz toda a diferença.' : ''}`,
-    `${primeiroNome}, metade da jornada é o momento em que a mudança começa a aparecer de verdade. Não desista agora — o melhor ainda está por vir.${valor1 ? ' Que '+valor1+' continue guiando suas escolhas.' : ''}`,
-    `${primeiroNome}, você está no meio do processo e já não é mais a mesma pessoa que chegou. Isso é crescimento real. Continue se mostrando — para mim e, principalmente, para você.`,
-    `${primeiroNome}, cada sessão que você fez foi uma prova de compromisso com a sua própria vida. Isso não é pouca coisa.${objetivo ? ' Você está mais perto de '+objetivo+' do que imagina.' : ''} Siga em frente.`,
-    `${primeiroNome}, a sua evolução ao longo dessas sessões é visível e bonita. Você chegou com perguntas e está construindo respostas. Essa é a essência do Coaching Criacional®.${propTop3 ? ' O seu propósito — '+propTop3.slice(0,50)+(propTop3.length>50?'...':'')+' — é real.' : ''}`,
+    // Meio — reconhecimento da evolução
+    `${primeiroNome}, você já não é mais a mesma pessoa que chegou aqui. Isso não é figura de linguagem — é fato. Continue se mostrando, continue aparecendo.${eppTexto ? ' Seu compromisso de "'+eppTexto.slice(0,55)+(eppTexto.length>55?'...':'')+'" diz muito sobre quem você está se tornando.' : ''}`,
+    `${primeiroNome}, o meio do processo é onde a transformação começa a aparecer para o mundo. Você já sente isso. Não pare agora — o melhor ainda está por vir.${valor1 ? ' Que '+valor1+' continue guiando suas escolhas.' : ''}`,
+    `${primeiroNome}, cada sessão que você honrou foi uma prova de compromisso com a sua própria vida. Isso não é pouca coisa — é tudo.${objetivo ? ' Você está mais perto de '+objetivo+' do que imagina.' : ''}`,
+    `${primeiroNome}, sua evolução ao longo dessas sessões é visível e bonita. Você chegou com perguntas e está construindo respostas sólidas. Essa é a essência do Coaching Criacional®.`,
+    `${primeiroNome}, processos de verdade têm altos e baixos — e você tem navegado isso com maturidade. Continue confiando no que está sendo construído dentro de você.${propTop3 ? ' Seu propósito é real: '+propTop3.slice(0,50)+(propTop3.length>50?'...' :'')+'.' : ''}`,
   ];
 
   const texto = msgs[Math.floor(Math.random() * msgs.length)];
@@ -6968,6 +7024,24 @@ async function verificarTokenURL(){
 }
 
 let _coacheeTokenId = null;
+
+// ══ MENU MOBILE ══
+function toggleMobMenu(){
+  const sb  = document.getElementById('sb');
+  const ov  = document.getElementById('sb-overlay');
+  const open = sb.classList.contains('mob-open');
+  if(open){ fecharMobMenu(); } else { sb.classList.add('mob-open'); ov.classList.add('on'); }
+}
+function fecharMobMenu(){
+  document.getElementById('sb').classList.remove('mob-open');
+  document.getElementById('sb-overlay').classList.remove('on');
+}
+// Fechar menu ao navegar no mobile
+const _irOrig = ir;
+function ir(pg){
+  fecharMobMenu();
+  _irOrig(pg);
+}
 
 // ══ BACKUP ══
 function exportJSON(){

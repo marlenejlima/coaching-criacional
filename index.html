@@ -338,6 +338,8 @@ select.finp { appearance:none; background-image:url("data:image/svg+xml,%3Csvg x
 .btn-act.gold:hover { background:#a07820 }
 .btn-act.sage     { background:var(--sage-bg); color:var(--sage); border:1.5px solid var(--sage2) }
 .btn-act.sage:hover { background:var(--sage2); color:#fff }
+.btn-act.terra    { background:var(--terra); color:#fff }
+.btn-act.terra:hover { background:var(--terra2) }
 .btn-act.danger   { background:#FFF0EE; color:var(--danger) }
 .btn-act.danger:hover { background:var(--danger); color:#fff }
 
@@ -2945,7 +2947,8 @@ function renderPerfil(id){
   acoes += `
     <button class="btn-act ghost" onclick="abrirWhats('${id}')">💬 WhatsApp</button>
     <button class="btn-act ghost" onclick="gerarPaginaCliente('${id}')">✨ Página do Coachee</button>
-    <button class="btn-act gold"  onclick="gerarRelatorio('${id}')">📄 Relatório Final</button>`;
+    <button class="btn-act gold"  onclick="gerarRelatorio('${id}')">📄 Relatório Final</button>
+    <button class="btn-act terra" onclick="abrirAcessoCoachee('${id}')">🔑 Acesso do Coachee</button>`;
   if(isProc){
     acoes += ` <button class="btn-act sage" onclick="iniciarNovoProcesso('${id}')" title="Iniciar um novo ciclo de 10 sessões">🌱 Novo Processo</button>`;
     acoes += ` <button class="btn-act ghost" onclick="iniciarNovaClareza('${id}')" title="Sessão de Clareza avulsa — pode virar processo depois">🔍 Nova Clareza</button>`;
@@ -5667,8 +5670,8 @@ async function baixarPdfPerfil(coacheeId){
   a.click();
 }
 
-function gerarPaginaCliente(id){
-  const data = loadMigrado();
+function gerarPaginaCliente(id, coacheeObj){
+  const data = coacheeObj ? [coacheeObj] : loadMigrado();
   const c = data.find(x=>x.id===id); if(!c) return;
   const coach = loadCoach();
   const p      = processoAtivo(c);
@@ -6167,7 +6170,12 @@ ${ctx}`;
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'SUA_CHAVE_AQUI',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-allow-browser': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
@@ -6189,71 +6197,55 @@ ${ctx}`;
   }
 }
 
-async function gerarMensagemIA(c, p, primeiroNome, feitas, total, eppTexto, top5){
-  // Montar contexto para o prompt
+function gerarMensagemIA(c, p, primeiroNome, feitas, total, eppTexto, top5){
+  const s1td    = p?.sessoes?.[0]?.toolData||{};
+  const objetivo = s1td.objetivo || '';
   const sProposito = p?.sessoes?.find(s=>s.tool==='proposito')?.toolData||{};
-  const valores5   = top5.map((v,i)=> (i+1)+'. '+v.nome).join(', ') || 'não registrados ainda';
   const propTop3   = sProposito.top3 || sProposito.eu || '';
-  const missao     = sProposito.missao || '';
-  const s1td       = p?.sessoes?.[0]?.toolData||{};
-  const objetivo   = s1td.objetivo || '';
-  const sessaoAtual= feitas < total ? feitas + 1 : total;
+  const valor1     = top5?.[0]?.nome || '';
   const concluido  = feitas === total;
+  const inicio     = feitas <= 2;
+  const meio       = feitas > 2 && feitas < total;
 
-  const prompt = `Você é Marlene Lima, coach especializada em Coaching Criacional® pela metodologia IGT de Geronimo Theml.
-Escreva uma mensagem PESSOAL, CALOROSA e MOTIVADORA para ${primeiroNome}, seu coachee.
+  // Montar grupos de mensagens por momento
+  const msgs = concluido ? [
+    `${primeiroNome}, você chegou até aqui. Não por acaso — por escolha, por coragem e por consistência. Cada sessão foi um passo que apenas você poderia dar. Que essa jornada seja o começo de tudo que você já sabe que é capaz.`,
+    `${primeiroNome}, concluir um processo de coaching é um ato de amor próprio. Você olhou para dentro, teve coragem de ver e ainda mais coragem de agir. Isso não tem preço. Leve isso com você para sempre.`,
+    `${primeiroNome}, dez sessões. Dez encontros com a melhor versão de você. O que foi construído aqui não some — vive em cada decisão que você tomar daqui pra frente.${valor1 ? ' Que '+valor1+' continue sendo sua bússola.' : ''}`,
+    `${primeiroNome}, quando você olhar para trás daqui a um ano, vai lembrar desse momento como o ponto de virada. Não porque tudo mudou de uma vez — mas porque você decidiu mudar. E isso muda tudo.`,
+    `${primeiroNome}, a jornada que fizemos juntas foi uma das mais bonitas que já acompanhei. Você trouxe presença, honestidade e vontade real de evoluir. Que orgulho te ver aqui.${objetivo ? ' O ponto B que você escolheu está mais perto do que parece.' : ''}`,
+  ] : inicio ? [
+    `${primeiroNome}, você deu o primeiro passo — e esse costuma ser o mais difícil. Estar aqui, com disposição para se conhecer e se mover, já diz muito sobre quem você é. Estou com você nessa jornada.`,
+    `${primeiroNome}, começos têm uma energia especial. Tudo ainda está sendo construído, e é exatamente nessa fase que as grandes claridades aparecem.${objetivo ? ' Seu ponto B — '+objetivo+' — é real e possível.' : ''} Vamos juntas.`,
+    `${primeiroNome}, cada grande transformação começa com uma decisão simples: a de olhar para dentro. Você já tomou essa decisão. Agora é só continuar colocando um pé na frente do outro.`,
+    `${primeiroNome}, o processo que você iniciou é um presente para a sua vida. Não tenha pressa — cada sessão tem o tempo certo. Confie no caminho e confie em você.`,
+    `${primeiroNome}, é uma honra acompanhar o início da sua jornada. O que você escolheu mover na sua vida merece atenção, cuidado e coragem — e você tem tudo isso.`,
+  ] : [
+    `${primeiroNome}, você já percorreu um caminho importante. As sessões que fizemos juntas não foram só conversas — foram transformações reais. Continue com essa mesma disposição.${eppTexto ? ' Seu compromisso de "'+eppTexto.slice(0,60)+(eppTexto.length>60?'...':'')+'" faz toda a diferença.' : ''}`,
+    `${primeiroNome}, metade da jornada é o momento em que a mudança começa a aparecer de verdade. Não desista agora — o melhor ainda está por vir.${valor1 ? ' Que '+valor1+' continue guiando suas escolhas.' : ''}`,
+    `${primeiroNome}, você está no meio do processo e já não é mais a mesma pessoa que chegou. Isso é crescimento real. Continue se mostrando — para mim e, principalmente, para você.`,
+    `${primeiroNome}, cada sessão que você fez foi uma prova de compromisso com a sua própria vida. Isso não é pouca coisa.${objetivo ? ' Você está mais perto de '+objetivo+' do que imagina.' : ''} Siga em frente.`,
+    `${primeiroNome}, a sua evolução ao longo dessas sessões é visível e bonita. Você chegou com perguntas e está construindo respostas. Essa é a essência do Coaching Criacional®.${propTop3 ? ' O seu propósito — '+propTop3.slice(0,50)+(propTop3.length>50?'...':'')+' — é real.' : ''}`,
+  ];
 
-CONTEXTO DO PROCESSO:
-- Sessão atual: ${concluido ? 'Processo concluído ('+total+'/'+total+' sessões)' : sessaoAtual+'/'+total+' sessões concluídas'}
-- Objetivo da jornada: ${objetivo || 'não informado'}
-- Valores principais: ${valores5}
-${propTop3 ? '- Propósito inabalável: '+propTop3 : ''}
-${missao ? '- Missão de vida: '+missao : ''}
-${eppTexto ? '- Último EPP comprometido: '+eppTexto : ''}
+  const texto = msgs[Math.floor(Math.random() * msgs.length)];
 
-INSTRUÇÕES:
-- Comece com o nome: "${primeiroNome},"
-- Faça referência ao momento exato do processo (sessão ${concluido ? 'concluída' : sessaoAtual})
-- Mencione algo específico do contexto acima (objetivo, valores ou propósito)
-- Seja calorosa, direta, sem clichês genéricos
-- ${concluido ? 'Celebre a conclusão da jornada com emoção genuína' : 'Encoraje para o próximo passo'}
-- Máximo 5 linhas
-- NÃO assine — a assinatura já está no layout
-- Responda APENAS com o texto da mensagem, sem aspas, sem formatação markdown`;
-
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await resp.json();
-    const texto = data?.content?.[0]?.text?.trim() || '';
-
-    // Injetar no iframe
-    const iframe = document.getElementById('previewFrame');
-    const injetar = () => {
-      try {
-        const el = iframe.contentDocument?.getElementById('msg-ia-texto');
-        if(el && texto){
-          el.style.fontStyle = 'italic';
-          el.style.lineHeight = '1.8';
-          el.textContent = texto;
-        }
-      } catch(e){}
-    };
-    // Tentar imediatamente ou aguardar load
-    if(iframe.contentDocument?.getElementById('msg-ia-texto')){
-      injetar();
-    } else {
-      iframe.addEventListener('load', injetar, { once: true });
-    }
-  } catch(e){
-    console.warn('Mensagem IA:', e);
+  // Injetar no iframe
+  const iframe = document.getElementById('previewFrame');
+  const injetar = () => {
+    try {
+      const el = iframe.contentDocument?.getElementById('msg-ia-texto');
+      if(el){
+        el.style.fontStyle = 'italic';
+        el.style.lineHeight = '1.8';
+        el.textContent = texto;
+      }
+    } catch(e){}
+  };
+  if(iframe.contentDocument?.getElementById('msg-ia-texto')){
+    injetar();
+  } else {
+    iframe.addEventListener('load', injetar, { once: true });
   }
 }
 
@@ -6722,6 +6714,221 @@ function verPerfilPublico(){
 }
 
 
+
+// ══ ACESSO DO COACHEE ══
+let _acessoCoacheeId = null;
+let _acessoToken     = null;
+let _acessoWppNum    = null;
+
+async function abrirAcessoCoachee(id){
+  _acessoCoacheeId = id;
+  const data = loadMigrado();
+  const c    = data.find(x => x.id === id); if(!c) return;
+  const s    = sessaoAtual(); if(!s) return;
+
+  document.getElementById('acesso-coachee-nome').textContent = c.nome;
+  document.getElementById('acesso-senha').value = '';
+  document.getElementById('acesso-erro').textContent = '';
+  document.getElementById('acesso-wpp-bloco').style.display = 'none';
+  _acessoWppNum = c.whats;
+
+  // Verificar se já tem acesso ativo
+  const { data: token } = await supa.from('coachee_tokens')
+    .select('*').eq('coachee_id', id).eq('user_id', s.id).eq('ativo', true).single();
+
+  const statusEl   = document.getElementById('acesso-coachee-status');
+  const btnGerar   = document.getElementById('acesso-btn-gerar');
+  const btnRevogar = document.getElementById('acesso-btn-revogar');
+
+  if(token){
+    _acessoToken = token.token;
+    statusEl.innerHTML = '<span style="font-size:12px;background:#EEF5E8;color:var(--sage);padding:4px 10px;border-radius:20px;font-weight:600">✅ Acesso ativo</span>';
+    btnGerar.textContent = '🔄 Atualizar senha';
+    btnRevogar.style.display = 'inline-flex';
+  } else {
+    _acessoToken = null;
+    statusEl.innerHTML = '<span style="font-size:12px;background:var(--warm);color:var(--muted);padding:4px 10px;border-radius:20px">Sem acesso gerado</span>';
+    btnGerar.textContent = '✅ Gerar Acesso';
+    btnRevogar.style.display = 'none';
+  }
+
+  document.getElementById('acessoCoacheeOv').classList.add('on');
+}
+
+function fecharAcessoCoachee(){
+  document.getElementById('acessoCoacheeOv').classList.remove('on');
+  _acessoCoacheeId = null;
+}
+
+async function gerarAcessoCoachee(){
+  const senha = document.getElementById('acesso-senha').value.trim();
+  const err   = document.getElementById('acesso-erro');
+  if(!senha || senha.length < 4){ err.textContent = 'Informe uma senha com pelo menos 4 caracteres.'; return; }
+  err.textContent = '';
+
+  const s  = sessaoAtual(); if(!s) return;
+  const id = _acessoCoacheeId;
+
+  // Hash da senha
+  const hash = await hashSenha(senha);
+
+  // Revogar token anterior se existir
+  await supa.from('coachee_tokens').update({ ativo: false })
+    .eq('coachee_id', id).eq('user_id', s.id);
+
+  // Criar novo token
+  const { data: novoToken, error } = await supa.from('coachee_tokens')
+    .insert({ coachee_id: id, user_id: s.id, senha_hash: hash, ativo: true })
+    .select().single();
+
+  if(error){ err.textContent = 'Erro ao gerar acesso: ' + error.message; return; }
+
+  _acessoToken = novoToken.token;
+
+  // Buscar dados do coachee para montar a mensagem
+  const data = loadMigrado();
+  const c    = data.find(x => x.id === id);
+  const nome = c?.nome?.trim().split(' ')[0] || 'você';
+  const coach= loadCoach();
+  const url  = window.location.href.split('?')[0].split('#')[0];
+  const link = url + '?coachee=' + novoToken.token;
+
+  const msg = `Olá, ${nome}! 🌿
+
+Sua página de acompanhamento da jornada está pronta.
+
+` +
+    `Acesse pelo link abaixo e entre com seus dados:
+
+` +
+    `🔗 ${link}
+
+` +
+    `📧 E-mail: ${c?.email || 'seu e-mail cadastrado'}
+` +
+    `🔑 Senha: ${senha}
+
+` +
+    `Nessa página você acompanha seu progresso, relê seus compromissos e visualiza sua evolução ao longo da jornada. 💛
+
+` +
+    `${coach.nome || 'Marlene Lima'} - Coaching Criacional®`;
+
+  document.getElementById('acesso-wpp-texto').value = msg;
+  document.getElementById('acesso-wpp-bloco').style.display = 'block';
+
+  // Atualizar status
+  document.getElementById('acesso-coachee-status').innerHTML =
+    '<span style="font-size:12px;background:#EEF5E8;color:var(--sage);padding:4px 10px;border-radius:20px;font-weight:600">✅ Acesso gerado!</span>';
+  document.getElementById('acesso-btn-revogar').style.display = 'inline-flex';
+  document.getElementById('acesso-btn-gerar').textContent = '🔄 Atualizar senha';
+  mostrarAviso('✅ Acesso gerado com sucesso!', 'ok');
+}
+
+async function revogarAcessoCoachee(){
+  const s  = sessaoAtual(); if(!s) return;
+  const id = _acessoCoacheeId;
+  await supa.from('coachee_tokens').update({ ativo: false })
+    .eq('coachee_id', id).eq('user_id', s.id);
+  _acessoToken = null;
+  document.getElementById('acesso-coachee-status').innerHTML =
+    '<span style="font-size:12px;background:var(--warm);color:var(--muted);padding:4px 10px;border-radius:20px">Acesso revogado</span>';
+  document.getElementById('acesso-btn-revogar').style.display = 'none';
+  document.getElementById('acesso-btn-gerar').textContent = '✅ Gerar Acesso';
+  document.getElementById('acesso-wpp-bloco').style.display = 'none';
+  mostrarAviso('Acesso revogado.', 'ok');
+}
+
+function enviarAcessoWpp(){
+  const num = (_acessoWppNum||'').replace(/[^0-9]/g,'');
+  const wpp = num.startsWith('55') ? num : '55' + num;
+  const txt = encodeURIComponent(document.getElementById('acesso-wpp-texto').value);
+  window.open('https://wa.me/' + wpp + '?text=' + txt, '_blank');
+}
+
+function copiarMsgAcesso(){
+  navigator.clipboard.writeText(document.getElementById('acesso-wpp-texto').value);
+  mostrarAviso('📋 Mensagem copiada!', 'ok');
+}
+
+// ══ LOGIN DO COACHEE ══
+async function loginCoachee(){
+  const email = document.getElementById('cl-email').value.trim().toLowerCase();
+  const senha = document.getElementById('cl-senha').value;
+  const err   = document.getElementById('cl-erro');
+  if(!email || !senha){ err.textContent = 'Preencha e-mail e senha.'; return; }
+  err.textContent = 'Verificando...';
+
+  const hash = await hashSenha(senha);
+
+  // Buscar coachee pelo e-mail
+  const { data: coachees } = await supa.from('coachees').select('id,nome,email').eq('email', email);
+  if(!coachees || coachees.length === 0){ err.textContent = 'E-mail ou senha incorretos.'; return; }
+
+  // Verificar token ativo com essa senha
+  let tokenValido = null;
+  for(const c of coachees){
+    const { data: token } = await supa.from('coachee_tokens')
+      .select('*').eq('coachee_id', c.id).eq('senha_hash', hash).eq('ativo', true).single();
+    if(token){ tokenValido = { token, coachee: c }; break; }
+  }
+
+  if(!tokenValido){ err.textContent = 'E-mail ou senha incorretos.'; return; }
+
+  err.textContent = '';
+  // Abrir a página do coachee
+  document.getElementById('coachee-login-screen').style.display = 'none';
+  gerarPaginaClientePublica(tokenValido.coachee.id);
+}
+
+async function gerarPaginaClientePublica(coacheeId){
+  // Buscar todos os dados do coachee do Supabase diretamente
+  const [{ data: coachee }, { data: processos }, { data: sessoes }] = await Promise.all([
+    supa.from('coachees').select('*').eq('id', coacheeId).single(),
+    supa.from('processos').select('*').eq('coachee_id', coacheeId),
+    supa.from('sessoes').select('*').eq('processo_id', (await supa.from('processos').select('id').eq('coachee_id', coacheeId)).data?.map(p=>p.id).join(',') || 'none')
+  ]);
+  if(!coachee) return;
+
+  // Montar estrutura compatível com gerarPaginaCliente
+  const c = {
+    ...coachee,
+    origemIndicador: coachee.origem_indicador,
+    processos: (processos||[]).map(p => ({
+      ...p, startDate: p.start_date, endDate: p.end_date,
+      financeiro: { tipo: p.fin_tipo, valor: p.fin_valor },
+      sessoes: (sessoes||[]).filter(s => s.processo_id === p.id)
+        .sort((a,b) => a.num - b.num)
+        .map(s => ({ ...s, valeuSessao: s.valeu_sessao, toolData: s.tool_data,
+          eppStatus: s.epp_status, idiGratidao: s.idi_gratidao }))
+    }))
+  };
+  gerarPaginaCliente(c.id, c);
+}
+
+// Verificar se URL tem ?coachee=TOKEN ao carregar
+async function verificarTokenURL(){
+  const params = new URLSearchParams(window.location.search);
+  const token  = params.get('coachee');
+  if(!token) return false;
+
+  // Validar token no Supabase
+  const { data } = await supa.from('coachee_tokens')
+    .select('coachee_id, ativo').eq('token', token).single();
+
+  if(!data || !data.ativo){
+    // Token inválido — mostrar login do coachee
+    document.getElementById('coachee-login-screen').style.display = 'flex';
+    return true;
+  }
+
+  // Token válido — mostrar página sem senha
+  document.getElementById('login-screen').classList.add('hide');
+  gerarPaginaClientePublica(data.coachee_id);
+  // Mostrar a página no previewOv
+  return true;
+}
+
 // ══ BACKUP ══
 function exportJSON(){
   const blob = new Blob([JSON.stringify(load(),null,2)],{type:'application/json'});
@@ -6770,6 +6977,10 @@ function _initUI(){
 }
 
 (async function(){
+  // Verificar se é acesso de coachee via token na URL
+  const isCoacheeAccess = await verificarTokenURL();
+  if(isCoacheeAccess) return;
+
   // Verificar sessão ativa no Supabase
   const { data: { session } } = await supa.auth.getSession();
   if(!session){
@@ -6793,5 +7004,64 @@ function _initUI(){
   await inicializarDados();
 })();
 </script>
+
+<!-- ══ MODAL ACESSO DO COACHEE ══ -->
+<div class="senha-modal-ov" id="acessoCoacheeOv">
+  <div class="senha-modal" style="max-width:420px">
+    <div class="senha-modal-title">🔑 Acesso do Coachee</div>
+    <div class="senha-modal-sub" id="acesso-coachee-nome">Gerencie o acesso desta pessoa à sua página de acompanhamento.</div>
+    <div id="acesso-coachee-status" style="margin:12px 0"></div>
+    <div class="fgrp">
+      <label class="flbl">Senha para o coachee</label>
+      <input class="finp" id="acesso-senha" type="text" placeholder="Ex: jornada2025" autocomplete="off">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Escolha algo fácil de lembrar. Você vai enviar pelo WhatsApp.</div>
+    </div>
+    <div style="color:var(--danger);font-size:12px;min-height:18px;margin:8px 0" id="acesso-erro"></div>
+    <div class="form-actions" style="flex-wrap:wrap;gap:8px">
+      <button class="btn-secondary" onclick="fecharAcessoCoachee()">Cancelar</button>
+      <button class="btn-primary" id="acesso-btn-gerar" onclick="gerarAcessoCoachee()">✅ Gerar Acesso</button>
+      <button class="btn-secondary" id="acesso-btn-revogar" style="display:none;background:#FFF0EE;color:var(--danger);border-color:#ffd0ca" onclick="revogarAcessoCoachee()">🚫 Revogar Acesso</button>
+    </div>
+    <div id="acesso-wpp-bloco" style="display:none;margin-top:16px;background:var(--warm);border-radius:10px;padding:14px;border:1.5px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--terra);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">📱 Mensagem pronta para WhatsApp</div>
+      <textarea id="acesso-wpp-texto" style="width:100%;font-size:13px;line-height:1.6;border:none;background:transparent;resize:vertical;min-height:120px;font-family:inherit;color:var(--ink);outline:none" readonly></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn-primary" style="flex:1" onclick="enviarAcessoWpp()">💬 Abrir no WhatsApp</button>
+        <button class="btn-secondary" onclick="copiarMsgAcesso()">📋 Copiar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TELA DE LOGIN DO COACHEE ══ -->
+<div id="coachee-login-screen" style="display:none;position:fixed;inset:0;z-index:99999;background:var(--warm);align-items:center;justify-content:center">
+  <div class="login-wrap">
+    <div class="login-logo">
+      <div class="login-logo-eyebrow">Acompanhe sua jornada</div>
+      <div class="login-logo-name">Coaching<em>Criacional®</em></div>
+      <div class="login-logo-rule">
+        <div class="login-logo-rule-line"></div>
+        <div class="login-logo-rule-diamond"></div>
+        <div class="login-logo-rule-line"></div>
+      </div>
+    </div>
+    <div class="login-card">
+      <div class="login-title">Sua Jornada</div>
+      <div class="login-sub">Entre com seus dados de acesso enviados pela sua coach.</div>
+      <div class="login-field">
+        <label class="login-label">Seu e-mail</label>
+        <input class="login-input" id="cl-email" type="email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')loginCoachee()">
+      </div>
+      <div class="login-field">
+        <label class="login-label">Senha</label>
+        <input class="login-input" id="cl-senha" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')loginCoachee()">
+      </div>
+      <div class="login-error" id="cl-erro"></div>
+      <button class="login-btn" onclick="loginCoachee()">Entrar</button>
+    </div>
+    <div class="login-footer">Coaching Criacional® · Metodologia IGT</div>
+  </div>
+</div>
+
 </body>
 </html>

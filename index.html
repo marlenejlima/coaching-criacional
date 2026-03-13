@@ -6203,9 +6203,32 @@ function gerarMensagemIA(c, p, primeiroNome, feitas, total, eppTexto, top5){
   const sProposito = p?.sessoes?.find(s=>s.tool==='proposito')?.toolData||{};
   const propTop3   = sProposito.top3 || sProposito.eu || '';
   const valor1     = top5?.[0]?.nome || '';
-  const concluido  = feitas === total;
-  const inicio     = feitas <= 2;
-  const meio       = feitas > 2 && feitas < total;
+  const isClareza  = p?.tipo === 'clareza';
+  const concluido  = !isClareza && feitas === total;
+  const inicio     = !isClareza && feitas <= 2;
+  const meio       = !isClareza && feitas > 2 && feitas < total;
+
+  // Sessão de Clareza — grupo próprio
+  if(isClareza){
+    const msgsClareza = [
+      `${primeiroNome}, que presente foi essa Sessão de Clareza. Você parou, olhou para dentro e nomeou o que quer mover na sua vida — isso já é transformação.${objetivo ? ' O seu ponto B é '+objetivo+'.' : ''} O próximo passo é seu.`,
+      `${primeiroNome}, a clareza que surgiu hoje é real e poderosa. Poucas pessoas têm a coragem de fazer esse movimento. Você tem. Guarde bem o que descobriu aqui.`,
+      `${primeiroNome}, ter clareza sobre o que se quer é o começo de tudo. Você veio, se abriu e saiu diferente. Isso não é pouco — é tudo.${valor1 ? ' Que '+valor1+' guie seus próximos passos.' : ''}`,
+      `${primeiroNome}, a Sessão de Clareza é o espelho que poucos ousam encarar. Você encarou. O que você viu aqui vai continuar reverberando — deixa acontecer.`,
+      `${primeiroNome}, foi uma honra estar com você nessa sessão. O que você carrega a partir de agora é uma clareza que só pertence a você. Use com coragem.`,
+    ];
+    const texto = msgsClareza[Math.floor(Math.random() * msgsClareza.length)];
+    const iframe = document.getElementById('previewFrame');
+    const injetar = () => {
+      try {
+        const el = iframe.contentDocument?.getElementById('msg-ia-texto');
+        if(el){ el.style.fontStyle='italic'; el.style.lineHeight='1.8'; el.textContent=texto; }
+      } catch(e){}
+    };
+    if(iframe.contentDocument?.getElementById('msg-ia-texto')) injetar();
+    else iframe.addEventListener('load', injetar, { once: true });
+    return;
+  }
 
   // Montar grupos de mensagens por momento
   const msgs = concluido ? [
@@ -6853,19 +6876,31 @@ function copiarMsgAcesso(){
 
 // ══ LOGIN DO COACHEE ══
 async function loginCoachee(){
-  const email = document.getElementById('cl-email').value.trim().toLowerCase();
   const senha = document.getElementById('cl-senha').value;
   const err   = document.getElementById('cl-erro');
-  if(!email || !senha){ err.textContent = 'Preencha e-mail e senha.'; return; }
+  if(!senha){ err.textContent = 'Digite sua senha.'; return; }
   err.textContent = 'Verificando...';
 
   const hash = await hashSenha(senha);
 
-  // Buscar coachee pelo e-mail
+  // Modo token — e-mail já identificado pelo link
+  if(_coacheeTokenId){
+    const { data: token } = await supa.from('coachee_tokens')
+      .select('*').eq('coachee_id', _coacheeTokenId).eq('senha_hash', hash).eq('ativo', true).single();
+    if(!token){ err.textContent = 'Senha incorreta.'; return; }
+    err.textContent = '';
+    document.getElementById('coachee-login-screen').style.display = 'none';
+    gerarPaginaClientePublica(_coacheeTokenId);
+    return;
+  }
+
+  // Modo e-mail — acesso direto sem link
+  const email = document.getElementById('cl-email').value.trim().toLowerCase();
+  if(!email){ err.textContent = 'Preencha e-mail e senha.'; return; }
+
   const { data: coachees } = await supa.from('coachees').select('id,nome,email').eq('email', email);
   if(!coachees || coachees.length === 0){ err.textContent = 'E-mail ou senha incorretos.'; return; }
 
-  // Verificar token ativo com essa senha
   let tokenValido = null;
   for(const c of coachees){
     const { data: token } = await supa.from('coachee_tokens')
@@ -6876,7 +6911,6 @@ async function loginCoachee(){
   if(!tokenValido){ err.textContent = 'E-mail ou senha incorretos.'; return; }
 
   err.textContent = '';
-  // Abrir a página do coachee
   document.getElementById('coachee-login-screen').style.display = 'none';
   gerarPaginaClientePublica(tokenValido.coachee.id);
 }
@@ -6917,17 +6951,23 @@ async function verificarTokenURL(){
     .select('coachee_id, ativo').eq('token', token).single();
 
   if(!data || !data.ativo){
-    // Token inválido — mostrar login do coachee
+    // Token inválido — mostrar mensagem e login
     document.getElementById('coachee-login-screen').style.display = 'flex';
+    document.getElementById('cl-erro').textContent = 'Link inválido ou expirado.';
     return true;
   }
 
-  // Token válido — mostrar página sem senha
+  // Token válido — guardar coachee_id e pedir senha
+  _coacheeTokenId = data.coachee_id;
   document.getElementById('login-screen').classList.add('hide');
-  gerarPaginaClientePublica(data.coachee_id);
-  // Mostrar a página no previewOv
+  document.getElementById('coachee-login-screen').style.display = 'flex';
+  // Ocultar campo de e-mail — identificação já vem pelo token
+  document.getElementById('cl-email-grp').style.display = 'none';
+  document.getElementById('cl-login-sub').textContent = 'Digite sua senha para acessar sua jornada.';
   return true;
 }
+
+let _coacheeTokenId = null;
 
 // ══ BACKUP ══
 function exportJSON(){
@@ -7047,8 +7087,8 @@ function _initUI(){
     </div>
     <div class="login-card">
       <div class="login-title">Sua Jornada</div>
-      <div class="login-sub">Entre com seus dados de acesso enviados pela sua coach.</div>
-      <div class="login-field">
+      <div class="login-sub" id="cl-login-sub">Entre com seus dados de acesso enviados pela sua coach.</div>
+      <div class="login-field" id="cl-email-grp">
         <label class="login-label">Seu e-mail</label>
         <input class="login-input" id="cl-email" type="email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')loginCoachee()">
       </div>
